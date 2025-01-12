@@ -9,12 +9,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer
 import okio.sink
-import java.io.File
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,65 +26,139 @@ class DownloadManager @Inject constructor(
 ) {
 
     private val client =
-        OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
+        OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)
+            .followRedirects(true).followSslRedirects(true).build()
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _activeDownloads = MutableStateFlow<Map<Int, DownloadTask>>(emptyMap())
-
     val activeDownloads: StateFlow<Map<Int, DownloadTask>> get() = _activeDownloads
+
+    private val _completedDownloads = MutableStateFlow<Map<Int, DownloadTask>>(emptyMap());
+    val completedDownloads: StateFlow<Map<Int, DownloadTask>> = _completedDownloads;
+
+    private val userAgent = "User-Agent";
+    private val userAgentValue =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+
+    fun getActiveDownloadsFromDb() {
+        coroutineScope.launch {
+            val activeFlow = repository.getTasksByStatus(DownloadStatus.ACTIVE)
+            val pausedFlow = repository.getTasksByStatus(DownloadStatus.PAUSED)
+
+            combine(activeFlow, pausedFlow) { activeList, pausedList ->
+                val activeDownloadsFromDb = activeList.associateBy { it.id }
+                val pausedDownloadsFromDb = pausedList.associateBy { it.id }
+                activeDownloadsFromDb + pausedDownloadsFromDb
+            }.collect { combinedDownloads ->
+                _activeDownloads.emit(combinedDownloads)
+            }
+        }
+    }
+
+    fun getCompletedDownloadsFromDb() {
+        coroutineScope.launch {
+            repository.getTasksByStatus(DownloadStatus.COMPLETED).collect { response ->
+                val completedDownloadsFromDb = response.associateBy { it.id }
+                _completedDownloads.emit(completedDownloadsFromDb);
+            };
+        }
+    }
 
     var _isLoading = MutableStateFlow(false)
 
     val isLoading: StateFlow<Boolean> = _isLoading;
 
+    fun getFileMetaData(url: String) {
+
+        coroutineScope.launch {
+            try {
+                _isLoading.value = true;
+                val request = Request.Builder().url(url).header(
+                    userAgent,
+                    userAgentValue,
+                ).head().build()
+
+                val response = client.newCall(request).execute();
+
+                if (response.isSuccessful) {
+                    val headers = response.headers
+                    val contentDisposition = headers["Content-Disposition"]
+                    val contentLength = headers["Content-Length"]?.toLongOrNull()
+
+                    // Extract file name from Content-Disposition or URL
+                    val fileName =
+                        if (contentDisposition != null && contentDisposition.contains("filename=")) {
+                            contentDisposition.substringAfter("filename=").trim('"')
+                        } else {
+                            url.substringAfterLast("/")
+                        }
+
+                    val file = getFile(fileName, context);
+
+                    val progress = getProgress(file, contentLength)
+
+                    var downloadTask = DownloadTask(
+                        fileName = fileName,
+                        url = url,
+                        totalBytes = contentLength,
+                        progress = progress,
+                    );
+
+                    val rowId = repository.insertOrUpdate(downloadTask);
+                    if (rowId != -1L) {
+                        downloadTask = downloadTask.copy(id = rowId.toInt());
+                        startDownload(downloadTask);
+                    } else {
+                        throw Exception("Failed to add to database")
+                    }
+
+
+                } else {
+                    Toast.makeText(context, "Failed to get file meta data", Toast.LENGTH_SHORT)
+                        .show();
+
+                }
+
+            } catch (e: Exception) {
+                Toast.makeText(context, "", Toast.LENGTH_SHORT).show()
+                Log.d("DownloadManager", "Exception: ${e.toString()}")
+
+            } finally {
+                _isLoading.value = false;
+            }
+        }
+
+
+    }
+
     fun startDownload(task: DownloadTask) {
         Log.d("DownloadManager", "downloading")
-        val downloadJob = coroutineScope.launch {
+        coroutineScope.launch {
             try {
 
                 _isLoading.value = true;
 
-                val taskInDb = repository.getTaskById(task.id)
+                repository.getTaskById(task.id) ?: throw Exception("Error: Cannot find task")
 
-                if (taskInDb == null) {
-                    Log.d("DownloadManager", "inserting: ${task.fileName} ${task.status} ${task.progress}")
-                    val taskId = repository.insertOrUpdate(task);
+                val file = getFile(task.fileName, context);
 
-                    if(taskId == -1L){
-                        Toast.makeText(context, "Failed to add task", Toast.LENGTH_SHORT).show()
-                        throw Exception("Failed to insert task")
-                    }
+                var downloadedBytes = getDownloadedBytes(file)
 
-                    val updatedTask = task.copy(id = taskId.toInt());
-
-                    val updatedActiveDownloads = _activeDownloads.value.toMutableMap()
-                    updatedActiveDownloads[task.id] = updatedTask
-                    _activeDownloads.value = updatedActiveDownloads
-                }
-
-                if (taskInDb != null && taskInDb.status == DownloadStatus.COMPLETED) {
-                    _isLoading.value = false;
-                    Toast.makeText(context, "File already downloaded", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-
-                val file = File(context.getExternalFilesDir(null), task.fileName);
-
-                var downloadedBytes = if (file.exists()) file.length() else 0L
+                val progress = getProgress(file, task.totalBytes)
 
                 repository.updateTaskProgress(
                     task.id,
-                    if (task.totalBytes != null && task.totalBytes > 0) {
-                        (downloadedBytes.toFloat() / task.totalBytes.toFloat()) * 100
-                    } else 0f, DownloadStatus.ACTIVE,
+                    progress,
+                    DownloadStatus.ACTIVE,
                     task.totalBytes ?: 0L
                 )
 
                 val request = Request.Builder().url(task.url)
                     .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                        userAgent,
+                        userAgentValue,
                     )
                     .apply {
                         if (downloadedBytes > 0) {
@@ -167,18 +242,6 @@ class DownloadManager @Inject constructor(
                 )
             }
         }
-//        _activeDownloads.value[taskId]?.cancel()
-//        coroutineScope.launch {
-//            val task = repository.getTaskById(taskId)
-//            if (task != null) {
-//                repository.updateTaskProgress(
-//                    taskId,
-//                    0f,
-//                    DownloadStatus.PAUSED,
-//                    task.totalBytes ?: 0L
-//                );
-//            }
-//        }
     }
 
     fun resumeDownload(task: DownloadTask) {
@@ -197,19 +260,5 @@ class DownloadManager @Inject constructor(
                 )
             }
         }
-//        _activeDownloads.value[taskId]?.cancel()
-//        coroutineScope.launch {
-//            val task = repository.getTaskById(taskId)
-//            if (task != null) {
-//                repository.updateTaskProgress(
-//                    taskId,
-//                    0f,
-//                    DownloadStatus.CANCELLED,
-//                    task.totalBytes ?: 0L
-//                )
-//                _activeDownloads.value -= taskId;
-//            }
-//        }
     }
-
 }

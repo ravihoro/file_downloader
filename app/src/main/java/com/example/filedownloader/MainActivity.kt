@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FileDownloaderTheme {
-                DownloadList(downloadManager)
+                DownloadPage(downloadManager = downloadManager)
             }
         }
     }
