@@ -1,5 +1,6 @@
 package com.example.filedownloader
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,8 @@ fun DownloadItem(task: DownloadTask, downloadManager: DownloadManager){
     task.let {
         val progress = it.progress
         val status = it.status
+
+        Log.d("DownloadManager", "download item UI: ${it.id} ${it.status}");
 
         Card(
             modifier = Modifier
@@ -58,12 +61,14 @@ fun DownloadItem(task: DownloadTask, downloadManager: DownloadManager){
                         }
                     }
                     DownloadStatus.PAUSED -> {
-                        Button(onClick = {downloadManager.startDownload(it)}) {
-                            Text("Resume")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = {downloadManager.cancelDownload(it.id)}){
-                            Text("Cancel")
+                        Row{
+                            Button(onClick = {downloadManager.resumeDownload(it)}) {
+                                Text("Resume")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(onClick = {downloadManager.cancelDownload(it.id)}){
+                                Text("Cancel")
+                            }
                         }
                     }
                     DownloadStatus.COMPLETED -> Text("Download Complete")
