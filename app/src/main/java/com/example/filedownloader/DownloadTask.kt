@@ -10,7 +10,8 @@ data class DownloadTask(
     val url: String,
     val progress: Float = 0.0f,
     val status: DownloadStatus = DownloadStatus.ACTIVE,
-    val totalBytes: Long? = null
+    val totalBytes: Long? = null,
+    val mimeType: String = "",
 )
 
 enum class DownloadStatus {

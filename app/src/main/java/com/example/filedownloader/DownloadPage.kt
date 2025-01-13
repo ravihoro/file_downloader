@@ -82,10 +82,7 @@ fun DownloadPage(downloadManager: DownloadManager) {
             onUrlChange = { urlInput = it },
             onDismiss = { showDialog = false },
             onAddDownload = {
-                Log.d("DownloadManager", "Adding: $fileName $urlInput")
-
                 downloadManager.getFileMetaData(urlInput);
-
                 showDialog = false
             }
         )
