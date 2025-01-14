@@ -15,12 +15,12 @@ interface DownloadTaskDao {
     @Insert(onConflict =  OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(task: DownloadTask): Long
 
-    @Query("UPDATE DownloadTask SET progress = :progress, status = :status WHERE id = :id")
-    suspend fun updateTaskProgress(id: Int, progress: Float, status: DownloadStatus): Int
+    @Query("UPDATE DownloadTask SET progress = :progress, downloadedBytes = :downloadedBytes, status = :status WHERE id = :id")
+    suspend fun updateTaskProgress(id: Int, progress: Float, status: DownloadStatus, downloadedBytes: Long): Int
 
     @Query("SELECT * FROM DownloadTask WHERE id = :id")
     suspend fun getTaskById(id: Int): DownloadTask?
 
-    @Query("SELECT * FROM DownloadTask WHERE fileName = :fileName")
-    suspend fun getTaskByFileName(fileName: String): DownloadTask?
+    @Query("SELECT * FROM DownloadTask WHERE fileName = :fileName AND mimeType = :mimeType")
+    suspend fun getTaskByFileNameAndMimeType(fileName: String, mimeType: String): DownloadTask?
 }

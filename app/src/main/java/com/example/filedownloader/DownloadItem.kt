@@ -24,8 +24,6 @@ fun DownloadItem(task: DownloadTask, downloadManager: DownloadManager){
         val progress = it.progress
         val status = it.status
 
-        Log.d("DownloadManager", "download item UI: ${it.id} ${it.status}");
-
         Card(
             modifier = Modifier
                 .padding(16.dp)

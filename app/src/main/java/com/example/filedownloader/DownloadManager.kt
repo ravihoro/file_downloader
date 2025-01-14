@@ -17,6 +17,9 @@ import okhttp3.Request
 import okio.buffer
 import okio.sink
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,10 +30,9 @@ class DownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    private val client =
-        OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS)
-            .followRedirects(true).followSslRedirects(true).build()
+    private val client = OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS).followRedirects(true)
+        .followSslRedirects(true).build()
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -99,23 +101,34 @@ class DownloadManager @Inject constructor(
                             url.substringAfterLast("/")
                         }
 
-                    var downloadTask = DownloadTask(
-                        fileName = fileName,
-                        url = url,
-                        totalBytes = contentLength,
-                        progress = 0f,
-                        mimeType = contentType,
-                    );
 
-                    Log.d("DownloadManager", "created task: ${downloadTask.fileName} ${downloadTask.url} ${downloadTask.totalBytes} ${downloadTask.mimeType}");
+                    val taskInDb = repository.getTaskByFileNameAndMimeType(fileName, contentType);
 
-
-                    val rowId = repository.insertOrUpdate(downloadTask);
-                    if (rowId != -1L) {
-                        downloadTask = downloadTask.copy(id = rowId.toInt());
-                        startDownload(downloadTask);
+                    if (taskInDb != null) {
+                        if (taskInDb.status == DownloadStatus.COMPLETED) throw Exception("File already downloaded")
+                        startDownload(taskInDb);
                     } else {
-                        throw Exception("Failed to add to database")
+                        var downloadTask = DownloadTask(
+                            fileName = fileName,
+                            url = url,
+                            totalBytes = contentLength ?: 0L,
+                            progress = 0f,
+                            mimeType = contentType,
+                        );
+
+                        Log.d(
+                            "DownloadManager",
+                            "created task: ${downloadTask.fileName} ${downloadTask.url} ${downloadTask.totalBytes} ${downloadTask.mimeType}"
+                        );
+
+
+                        val rowId = repository.insertOrUpdate(downloadTask);
+                        if (rowId != -1L) {
+                            downloadTask = downloadTask.copy(id = rowId.toInt());
+                            startDownload(downloadTask);
+                        } else {
+                            throw Exception("Failed to add to database")
+                        }
                     }
 
 
@@ -147,49 +160,53 @@ class DownloadManager @Inject constructor(
 
                 _isLoading.value = true;
 
-                repository.getTaskById(task.id) ?: throw Exception("Error: Cannot find task")
+                Log.d("DownloadManager", "before file uri");
 
-                val fileUri = getFileUri(task.fileName, task.mimeType, context)
+                val taskInDb = repository.getTaskByFileNameAndMimeType(
+                    fileName = task.fileName,
+                    mimeType = task.mimeType
+                );
+
+                val fileUri = getFileUri(task.fileName, task.mimeType, context, taskInDb != null)
                     ?: throw Exception("Failed to create file");
 
-                //Log.d("DownloadManager", "File uri: $fileUri");
+                Log.d("DownloadManager", "File uri: $fileUri");
 
-                val file  = File(fileUri.path!!)
+                val newFileName = getFileNameFromUri(context, fileUri);
+
+                //val file = File(fileUri.path!!)
 
                 //Log.d("DownloadManager", "start download path: ${file.exists()} ${file.path}");
+
+                //val outputStream = FileOutputStream(file, true);
 
                 val outputStream = context.contentResolver.openOutputStream(fileUri)
                     ?: throw Exception("Failed to get output stream")
 
-                //Log.d("DownloadManager", "Output stream opened successfully")
+                Log.d("DownloadManager", "Output stream opened successfully")
 
-                var downloadedBytes = getDownloadedBytes(file)
+                var downloadedBytes = task.downloadedBytes;
 
-                //Log.d("DownloadManager", "downloaded bytes: $downloadedBytes");
+                Log.d("DownloadManager", "downloaded bytes: $downloadedBytes");
 
-                val progress = getProgress(file, task.totalBytes)
+                //val progress = task.progress// getProgress(downloadedBytes, task.totalBytes)
 
                 //Log.d("DownloadManager", "Progress initial: $progress");
 
-                repository.updateTaskProgress(
-                    task.id,
-                    progress,
-                    DownloadStatus.ACTIVE,
-                    task.totalBytes ?: 0L
-                )
+//                repository.updateTaskProgress(
+//                    task.id, progress, DownloadStatus.ACTIVE, task.downloadedBytes
+//                )
 
                 Log.d("DownloadManager", "setting to active");
 
-                val request = Request.Builder().url(task.url)
-                    .header(
-                        userAgent,
-                        userAgentValue,
-                    )
-                    .apply {
-                        if (downloadedBytes > 0) {
-                            header("Range", "bytes=$downloadedBytes-")
-                        }
-                    }.build()
+                val request = Request.Builder().url(task.url).header(
+                    userAgent,
+                    userAgentValue,
+                ).apply {
+                    if (downloadedBytes > 0) {
+                        header("Range", "bytes=$downloadedBytes-")
+                    }
+                }.build()
 
                 //Log.d("DownloadManager", "bytes=$downloadedBytes-");
 
@@ -197,14 +214,14 @@ class DownloadManager @Inject constructor(
 
                 if (!response.isSuccessful) throw Exception("Failed to download file")
 
-                val totalBytes =
-                    task.totalBytes ?: response.headers["Content-Range"]?.substringAfter("/")
-                        ?.toLongOrNull() ?: (response.body?.contentLength()
-                        ?.let { it + downloadedBytes }
-                        ?: throw Exception("Unable to determine file size"))
+                val totalBytes = task.totalBytes;
+//                    task.totalBytes ?: response.headers["Content-Range"]?.substringAfter("/")
+//                        ?.toLongOrNull() ?: (response.body?.contentLength()
+//                        ?.let { it + downloadedBytes }
+//                        ?: throw Exception("Unable to determine file size"))
 
 
-                repository.updateTaskProgress(task.id, 0f, DownloadStatus.ACTIVE, totalBytes)
+                //repository.updateTaskProgress(task.id, progress, DownloadStatus.ACTIVE, downloadedBytes)
                 //Log.d("DownloadManager", "setting to active 2");
 
 
@@ -215,7 +232,10 @@ class DownloadManager @Inject constructor(
 
                 //Log.d("DownloadManager", "task status: ${task.status}");
 
-                var updatedTask = task.copy(progress = progress)
+                if(newFileName != null && newFileName != task.fileName){
+                    repository.insertOrUpdate(task.copy(fileName = newFileName))
+                }
+                var updatedTask = task.copy(fileName = newFileName ?: task.fileName);
 
                 //Log.d("DownloadManager", "updated Task status: ${updatedTask.status}");
 
@@ -239,7 +259,7 @@ class DownloadManager @Inject constructor(
                         updatedTask.id,
                         progress,
                         DownloadStatus.ACTIVE,
-                        totalBytes
+                        downloadedBytes,
                     );
 
                     //Log.d("DownloadManager", "setting to active 3");
@@ -267,7 +287,9 @@ class DownloadManager @Inject constructor(
                     this[updatedTask.id] = updatedTask
                 }
 
-                repository.updateTaskProgress(task.id, 100f, DownloadStatus.COMPLETED, totalBytes);
+                repository.updateTaskProgress(
+                    task.id, 100f, DownloadStatus.COMPLETED, downloadedBytes
+                );
 
                 //Log.d("DownloadManager", "setting to complete");
 
@@ -275,12 +297,9 @@ class DownloadManager @Inject constructor(
 
             } catch (e: Exception) {
                 _isLoading.value = false;
-                //Log.d("DownloadManager", "error: ${e.toString()}")
+                Log.d("DownloadManager", "error: ${e.toString()}")
                 repository.updateTaskProgress(
-                    task.id,
-                    0f,
-                    DownloadStatus.CANCELLED,
-                    task.totalBytes ?: 0L
+                    task.id, 0f, DownloadStatus.CANCELLED, task.downloadedBytes
                 )
 
                 val updatedTask = task.copy(status = DownloadStatus.CANCELLED)
@@ -302,11 +321,10 @@ class DownloadManager @Inject constructor(
                 activeDownloadJobs[taskId]?.cancel();
                 activeDownloadJobs.remove(taskId)
 
+
+
                 repository.updateTaskProgress(
-                    taskId,
-                    task.progress,
-                    DownloadStatus.PAUSED,
-                    task.totalBytes ?: 0L
+                    taskId, task.progress, DownloadStatus.PAUSED, task.downloadedBytes
                 )
 
                 val updatedTask = task.copy(status = DownloadStatus.PAUSED)
@@ -314,7 +332,7 @@ class DownloadManager @Inject constructor(
                     this[taskId] = updatedTask
                 }
 
-                //Log.d("DownloadManager", "setting to paused");
+                Log.d("DownloadManager", "setting to paused : ${task.progress}");
 
             }
         }
@@ -334,10 +352,7 @@ class DownloadManager @Inject constructor(
 
             coroutineScope.launch {
                 repository.updateTaskProgress(
-                    taskId,
-                    task.progress,
-                    DownloadStatus.CANCELLED,
-                    task.totalBytes ?: 0L
+                    taskId, task.progress, DownloadStatus.CANCELLED, task.downloadedBytes
                 )
 
                 val updatedTask = task.copy(status = DownloadStatus.CANCELLED)
