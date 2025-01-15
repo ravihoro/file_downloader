@@ -1,13 +1,44 @@
 package com.example.filedownloader
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
+import androidx.annotation.RequiresApi
 import java.io.File
+import java.io.FileInputStream
+
+@RequiresApi(Build.VERSION_CODES.Q)
+fun saveFileToDownloads(context: Context, file: File, mimeType: String) {
+    val resolver = context.contentResolver;
+
+    val contentValues = ContentValues().apply {
+        put(MediaStore.Downloads.DISPLAY_NAME, file.name)
+        put(MediaStore.Downloads.MIME_TYPE, mimeType)
+        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+    }
+
+    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+    if(uri != null){
+        try {
+            resolver.openOutputStream(uri).use { outputStream ->
+                FileInputStream(file).use { inputStream ->
+                    inputStream.copyTo(outputStream!!)
+                }
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to save the file: ${e.message}", e)
+        }
+    }else{
+        throw Exception("Uri is nullll")
+    }
+}
 
 fun getFileUri(fileName: String, mimeType: String, context: Context, isTaskInDb: Boolean): Uri? {
 
@@ -65,6 +96,29 @@ fun getFileNameFromUri(context: Context, fileUri: Uri): String? {
     }
 
     return null
+}
+
+fun getFileSizeFromUri(uri: Uri, context: Context): Long {
+    var size: Long = 0
+    val contentResolver: ContentResolver = context.contentResolver
+
+    if (uri.scheme == "content") {
+        val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeIndex != -1) {
+                    size = it.getLong(sizeIndex)
+                }
+            }
+        }
+    } else if (uri.scheme == "file") {
+        // If the URI is a file path
+        val file = File(uri.path ?: "")
+        size = file.length()
+    }
+
+    return size
 }
 
 fun getDownloadedBytes(file: File): Long {
