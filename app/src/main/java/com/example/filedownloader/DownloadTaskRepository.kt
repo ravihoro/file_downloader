@@ -9,7 +9,7 @@ import javax.inject.Singleton
 class DownloadTaskRepository @Inject constructor(
     private val downloadTaskDao: DownloadTaskDao
 ) {
-    fun getTasksByStatus(status: DownloadStatus): Flow<List<DownloadTask>> {
+    fun getTasksByStatus(status: DownloadStatus): List<DownloadTask> {
         return downloadTaskDao.getTasksByStatusFlow(status);
     }
 
