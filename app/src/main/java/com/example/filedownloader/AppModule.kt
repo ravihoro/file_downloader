@@ -20,14 +20,20 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDownloadTaskDao(appDatabase: AppDatabase) : DownloadTaskDao{
+    fun provideDownloadTaskDao(appDatabase: AppDatabase): DownloadTaskDao {
         return appDatabase.downloadTaskDao();
     }
 
     @Provides
     @Singleton
-    fun provideDownloadTaskRepository(downloadTaskDao: DownloadTaskDao): DownloadTaskRepository{
+    fun provideDownloadTaskRepository(downloadTaskDao: DownloadTaskDao): DownloadTaskRepository {
         return DownloadTaskRepository(downloadTaskDao);
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationManager(@ApplicationContext context: Context): DownloadNotificationManager {
+        return DownloadNotificationManager(context);
     }
 
 }

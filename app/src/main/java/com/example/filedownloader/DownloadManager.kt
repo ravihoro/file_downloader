@@ -5,9 +5,6 @@ import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +12,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,13 +22,14 @@ import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.sin
 
 @Singleton
 class DownloadManager @Inject constructor(
     private val repository: DownloadTaskRepository,
     @ApplicationContext private val context: Context,
 ) {
+    @Inject
+    lateinit var notificationManager: DownloadNotificationManager;
 
     private val client = OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS).followRedirects(true)
@@ -50,6 +47,7 @@ class DownloadManager @Inject constructor(
 
     private val _isLoading = MutableStateFlow<Boolean>(false)
     val isLoading: StateFlow<Boolean> = _isLoading;
+
 
     private val userAgent = "User-Agent";
     private val userAgentValue =
@@ -177,6 +175,8 @@ class DownloadManager @Inject constructor(
 
         activeDownloadJobs[task.id]?.cancel();
 
+        var updatedTask = task.copy();
+
         val downloadJob = coroutineScope.launch {
             try {
 
@@ -232,7 +232,11 @@ class DownloadManager @Inject constructor(
 
                 setIsLoading(false, task);
 
-                var updatedTask = task.copy();
+                notificationManager.showDownloadNotification(
+                    updatedTask.id,
+                    updatedTask.fileName,
+                    progress = updatedTask.progress.toInt(),
+                );
 
                 //Log.d("DownloadManager", "updated Task status: ${updatedTask.status}");
 
@@ -268,6 +272,12 @@ class DownloadManager @Inject constructor(
 
                     val progress = (downloadedBytes.toFloat() / totalBytes.toFloat()) * 100;
 
+                    notificationManager.showDownloadNotification(
+                        updatedTask.id,
+                        updatedTask.fileName,
+                        progress = progress.toInt(),
+                    );
+
                     repository.updateTaskProgress(
                         task.id,
                         progress,
@@ -288,7 +298,6 @@ class DownloadManager @Inject constructor(
                         this[task.id] = updatedTask
                     }
 
-                    Log.d("DownloadManager", "Speed: ${updatedTask.speed} dfdfd $speed")
                 }
 
                 sink.flush();
@@ -313,6 +322,13 @@ class DownloadManager @Inject constructor(
                     this[updatedTask.id] = updatedTask
                 }
 
+                notificationManager.cancelNotification(updatedTask.id);
+
+                notificationManager.showDownloadCompleteNotification(
+                    updatedTask.id,
+                    updatedTask.fileName,
+                );
+
                 repository.updateTaskProgress(
                     task.id, 100f, DownloadStatus.COMPLETED, downloadedBytes
                 );
@@ -322,21 +338,26 @@ class DownloadManager @Inject constructor(
                 activeDownloadJobs.remove(task.id);
 
             } catch (e: Exception) {
-                setIsLoading(false, task);
+                setIsLoading(false, updatedTask);
                 Log.d("DownloadManager", "error: ${e.toString()}")
                 repository.updateTaskProgress(
-                    task.id, 0f, DownloadStatus.CANCELLED, task.downloadedBytes
+                    updatedTask.id,
+                    updatedTask.progress,
+                    DownloadStatus.PAUSED,
+                    updatedTask.downloadedBytes
                 )
 
-                val updatedTask =
-                    task.copy(
-                        status = DownloadStatus.CANCELLED,
+                updatedTask =
+                    updatedTask.copy(
+                        status = DownloadStatus.PAUSED,
                         speed = "",
                         message = e.message ?: "Error"
                     )
                 _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
                     this[task.id] = updatedTask
                 }
+
+                notificationManager.cancelNotification(updatedTask.id);
 
                 //Log.d("DownloadManager", "setting to cancel");
             }
@@ -346,10 +367,12 @@ class DownloadManager @Inject constructor(
     }
 
     fun pauseDownload(taskId: Int) {
+        notificationManager.cancelNotification(taskId);
         _activeDownloads.value[taskId]?.let { task ->
             coroutineScope.launch {
 
-                activeDownloadJobs[taskId]?.cancel();
+                activeDownloadJobs[taskId]?.takeIf { it.isActive }?.cancel()
+
                 activeDownloadJobs.remove(taskId)
 
                 val cache = context.externalCacheDir;
@@ -378,9 +401,11 @@ class DownloadManager @Inject constructor(
     }
 
     fun cancelDownload(taskId: Int) {
+        notificationManager.cancelNotification(taskId);
         _activeDownloads.value[taskId]?.let { task ->
 
-            activeDownloadJobs[taskId]?.cancel();
+            activeDownloadJobs[taskId]?.takeIf { it.isActive }?.cancel()
+
             activeDownloadJobs.remove(taskId)
 
             coroutineScope.launch {

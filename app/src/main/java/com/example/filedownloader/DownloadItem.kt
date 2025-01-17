@@ -99,7 +99,8 @@ fun DownloadItem(task: DownloadTask, downloadManager: DownloadManager) {
             Column(
                 modifier = Modifier
                     .padding(16.dp)
-                    .weight(1f)
+                    .weight(1f),
+                verticalArrangement = Arrangement.SpaceEvenly
 
             ) {
                 Text(it.fileName, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -110,7 +111,8 @@ fun DownloadItem(task: DownloadTask, downloadManager: DownloadManager) {
                         Row {
                             Icon(
                                 imageVector = Icons.Default.ArrowDownward,
-                                contentDescription = "Download Indicator"
+                                contentDescription = "Download Indicator",
+                                modifier = Modifier.size(18.dp)
                             )
                             Text(it.speed)
                         }
