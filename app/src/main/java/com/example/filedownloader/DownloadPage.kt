@@ -117,9 +117,10 @@ fun DownloadPage(downloadManager: DownloadManager) {
             urlInput = urlInput,
             isLoadingFlow = downloadManager.isLoading,
             onUrlChange = { urlInput = it },
-            onDismiss = { showDialog = false },
+            onDismiss = { showDialog = false; urlInput = "" },
             onAddDownload = {
                 downloadManager.getFileMetaData(urlInput);
+                urlInput = "";
                 showDialog = false
             }
         )

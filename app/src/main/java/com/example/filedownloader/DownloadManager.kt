@@ -48,6 +48,7 @@ class DownloadManager @Inject constructor(
     private val _isLoading = MutableStateFlow<Boolean>(false)
     val isLoading: StateFlow<Boolean> = _isLoading;
 
+    private val maxParallelDownloads = 4;
 
     private val userAgent = "User-Agent";
     private val userAgentValue =
@@ -152,22 +153,42 @@ class DownloadManager @Inject constructor(
         }
     }
 
-    fun setIsLoading(value: Boolean, task: DownloadTask) {
+    private fun setIsLoading(value: Boolean, task: DownloadTask) {
         val updatedTask = task.copy(isLoading = value);
         _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
             this[task.id] = updatedTask;
         };
     }
 
-    fun setMessage(value: String, task: DownloadTask) {
+    private fun setMessage(value: String, task: DownloadTask) {
         val updatedTask = task.copy(message = value);
         _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
             this[task.id] = updatedTask;
         };
     }
 
+    private fun canStartDownload() : Boolean {
+        val count = _activeDownloads.value.values.count{it.status == DownloadStatus.ACTIVE};
+
+        if(count < maxParallelDownloads) return true;
+
+        return false;
+    }
+
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startDownload(task: DownloadTask) {
+
+        if(!canStartDownload()){
+            val updatedTask = task.copy(status = DownloadStatus.PAUSED);
+            _activeDownloads.value = _activeDownloads.value.toMutableMap().apply{
+                this[task.id] = updatedTask;
+
+            }
+            coroutineScope.launch {
+                repository.insertOrUpdate(updatedTask);
+            }
+            return;
+        }
 
         setMessage("", task);
 
