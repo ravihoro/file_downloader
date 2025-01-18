@@ -88,7 +88,7 @@ class DownloadManager @Inject constructor(
                 val request = Request.Builder().url(url).header(
                     userAgent,
                     userAgentValue,
-                ).head().build()
+                ).addHeader("Range", "bytes=0-0").head().build()
 
                 val response = client.newCall(request).execute();
 
@@ -119,13 +119,8 @@ class DownloadManager @Inject constructor(
                             totalBytes = contentLength ?: 0L,
                             progress = 0f,
                             mimeType = contentType,
+                            supportsResume = (response.code == 206 && response.header("Content-Range") != null)
                         );
-
-                        Log.d(
-                            "DownloadManager",
-                            "created task: ${downloadTask.fileName} ${downloadTask.url} ${downloadTask.totalBytes} ${downloadTask.mimeType}"
-                        );
-
 
                         val rowId = repository.insertOrUpdate(downloadTask);
                         if (rowId != -1L) {
@@ -135,8 +130,6 @@ class DownloadManager @Inject constructor(
                             throw Exception("Failed to add to database")
                         }
                     }
-
-
                 } else {
                     Toast.makeText(context, "Failed to get file meta data", Toast.LENGTH_SHORT)
                         .show();
@@ -167,10 +160,10 @@ class DownloadManager @Inject constructor(
         };
     }
 
-    private fun canStartDownload() : Boolean {
-        val count = _activeDownloads.value.values.count{it.status == DownloadStatus.ACTIVE};
+    private fun canStartDownload(): Boolean {
+        val count = _activeDownloads.value.values.count { it.status == DownloadStatus.ACTIVE };
 
-        if(count < maxParallelDownloads) return true;
+        if (count < maxParallelDownloads) return true;
 
         return false;
     }
@@ -178,9 +171,9 @@ class DownloadManager @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.Q)
     fun startDownload(task: DownloadTask) {
 
-        if(!canStartDownload()){
+        if (!canStartDownload()) {
             val updatedTask = task.copy(status = DownloadStatus.PAUSED);
-            _activeDownloads.value = _activeDownloads.value.toMutableMap().apply{
+            _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
                 this[task.id] = updatedTask;
 
             }
@@ -220,15 +213,13 @@ class DownloadManager @Inject constructor(
                     Log.d("DownloadManager", "File size: ${file.length()} ${file.totalSpace}")
                 }
 
-
-
                 Log.d("DownloadManager", "setting to active");
 
                 val request = Request.Builder().url(task.url).header(
                     userAgent,
                     userAgentValue,
                 ).apply {
-                    if (downloadedBytes > 0) {
+                    if (downloadedBytes > 0 && task.supportsResume) {
                         header("Range", "bytes=$downloadedBytes-")
                         Log.d("DownloadManager", "range : $downloadedBytes")
                     }
@@ -245,8 +236,7 @@ class DownloadManager @Inject constructor(
 
                 val totalBytes = task.totalBytes;
 
-                val outputStream = FileOutputStream(file, true);
-
+                val outputStream = FileOutputStream(file, task.supportsResume);
 
                 val sink = outputStream.sink().buffer();
                 val source = response.body?.source() ?: throw Exception("Empty response body")

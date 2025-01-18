@@ -16,6 +16,7 @@ data class DownloadTask(
     val mimeType: String = "",
     val isLoading: Boolean = false,
     val message: String = "",
+    val supportsResume : Boolean = false,
 )
 
 enum class DownloadStatus {

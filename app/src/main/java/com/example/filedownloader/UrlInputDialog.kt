@@ -30,13 +30,13 @@ fun UrlInputDialog(
     AlertDialog(
 
         onDismissRequest = onDismiss,
-        title = { Text("Enter details to start download") },
+        title = { Text("Enter URL to start download") },
         text = {
             Column {
                 TextField(
                     value = urlInput,
                     onValueChange = onUrlChange,
-                    label = { Text("Download URL") },
+                    label = { Text("Enter URL") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions.Default.copy(
                         keyboardType = KeyboardType.Uri,
