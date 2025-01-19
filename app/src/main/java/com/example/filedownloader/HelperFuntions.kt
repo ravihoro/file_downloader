@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.FileInputStream
+import kotlin.math.floor
 import kotlin.text.*
 
 @RequiresApi(Build.VERSION_CODES.Q)
@@ -62,4 +63,8 @@ fun formatSpeed(bytesPerSecond: Double): String {
         bytesPerSecond >= kilobyte -> String.format("%.1f KB/s", bytesPerSecond / kilobyte)
         else -> String.format("%.1f B/s", bytesPerSecond)
     }
+}
+
+fun getFloor(value: Float): Int {
+    return floor(value).toInt();
 }

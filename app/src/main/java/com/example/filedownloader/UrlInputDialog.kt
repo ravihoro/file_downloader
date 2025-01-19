@@ -28,7 +28,6 @@ fun UrlInputDialog(
 
     Log.d("DownloadManager", "Alert Dialog")
     AlertDialog(
-
         onDismissRequest = onDismiss,
         title = { Text("Enter URL to start download") },
         text = {

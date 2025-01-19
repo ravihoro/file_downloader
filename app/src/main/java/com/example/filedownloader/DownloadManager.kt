@@ -88,7 +88,7 @@ class DownloadManager @Inject constructor(
                 val request = Request.Builder().url(url).header(
                     userAgent,
                     userAgentValue,
-                ).addHeader("Range", "bytes=0-0").head().build()
+                ).addHeader("Range", "bytes=0-").head().build()
 
                 val response = client.newCall(request).execute();
 
@@ -106,6 +106,8 @@ class DownloadManager @Inject constructor(
                             url.substringAfterLast("/")
                         }
 
+
+                    Log.d("DownloadManager", "$contentLength $contentType")
 
                     val taskInDb = repository.getTaskByFileNameAndMimeType(fileName, contentType);
 
@@ -207,7 +209,7 @@ class DownloadManager @Inject constructor(
                     Log.d("DownloadManager", "File does not exist");
                 }
 
-                var downloadedBytes = if (file.exists()) file.length() else 0L;
+                var downloadedBytes = if (file.exists() && task.supportsResume) file.length() else 0L;
 
                 if (file.exists()) {
                     Log.d("DownloadManager", "File size: ${file.length()} ${file.totalSpace}")
@@ -243,10 +245,12 @@ class DownloadManager @Inject constructor(
 
                 setIsLoading(false, task);
 
+                var progressInt = getFloor(updatedTask.progress);
+
                 notificationManager.showDownloadNotification(
                     updatedTask.id,
                     updatedTask.fileName,
-                    progress = updatedTask.progress.toInt(),
+                    progress = progressInt,
                 );
 
                 //Log.d("DownloadManager", "updated Task status: ${updatedTask.status}");
@@ -283,11 +287,16 @@ class DownloadManager @Inject constructor(
 
                     val progress = (downloadedBytes.toFloat() / totalBytes.toFloat()) * 100;
 
-                    notificationManager.showDownloadNotification(
-                        updatedTask.id,
-                        updatedTask.fileName,
-                        progress = progress.toInt(),
-                    );
+                    val tempProgress = getFloor(updatedTask.progress);
+
+                    if(tempProgress > progressInt){
+                        progressInt = tempProgress
+                        notificationManager.showDownloadNotification(
+                            updatedTask.id,
+                            updatedTask.fileName,
+                            progress = progressInt,
+                        );
+                    }
 
                     repository.updateTaskProgress(
                         task.id,
@@ -304,6 +313,8 @@ class DownloadManager @Inject constructor(
                             downloadedBytes = downloadedBytes,
                             speed = speed,
                         );
+
+                    Log.d("DownloadManger", "loop progesss: $progress ${updatedTask.progress}")
 
                     _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
                         this[task.id] = updatedTask
@@ -333,7 +344,7 @@ class DownloadManager @Inject constructor(
                     this[updatedTask.id] = updatedTask
                 }
 
-                notificationManager.cancelNotification(updatedTask.id);
+                //notificationManager.cancelNotification(updatedTask.id);
 
                 notificationManager.showDownloadCompleteNotification(
                     updatedTask.id,
@@ -382,6 +393,13 @@ class DownloadManager @Inject constructor(
         _activeDownloads.value[taskId]?.let { task ->
             coroutineScope.launch {
 
+                val updatedTask = task.copy(status = DownloadStatus.PAUSED, speed = "")
+                _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
+                    this[taskId] = updatedTask
+                }
+
+                Log.d("DownloadManager", "setting to paused : ${task.progress}");
+
                 activeDownloadJobs[taskId]?.takeIf { it.isActive }?.cancel()
 
                 activeDownloadJobs.remove(taskId)
@@ -393,12 +411,7 @@ class DownloadManager @Inject constructor(
                     taskId, task.progress, DownloadStatus.PAUSED, file.length()
                 )
 
-                val updatedTask = task.copy(status = DownloadStatus.PAUSED, speed = "")
-                _activeDownloads.value = _activeDownloads.value.toMutableMap().apply {
-                    this[taskId] = updatedTask
-                }
 
-                Log.d("DownloadManager", "setting to paused : ${task.progress}");
 
             }
         }
