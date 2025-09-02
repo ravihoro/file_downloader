@@ -42,10 +42,11 @@ class DownloadViewModel @Inject constructor(
 
     private fun observeDownloads() {
         val activeFlow = repository.getTaskByStatus(DownloadStatus.ACTIVE)
+        val pausedFlow = repository.getTaskByStatus(DownloadStatus.PAUSED)
         val completedFlow = repository.getTaskByStatus(DownloadStatus.COMPLETED)
 
-        combine(activeFlow, completedFlow) { active, completed ->
-            DownloadUiState(active = active, completed = completed)
+        combine(activeFlow, pausedFlow, completedFlow) { active, paused, completed ->
+            DownloadUiState(active = active + paused, completed = completed)
         }.onEach { newState ->
             _uiState.value = newState
         }.launchIn(viewModelScope)
