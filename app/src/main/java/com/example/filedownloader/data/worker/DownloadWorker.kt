@@ -50,7 +50,7 @@ class DownloadWorker @AssistedInject constructor(
 
                 setForeground(createForegroundInfo(taskId, task.fileName, 0))
 
-                val file = fileRepository.getCacheFile(fileName = task.fileName, context = context)
+                val file = fileRepository.getCacheFile(fileName = task.fileName)
 
                 downloadedBytes = if(file.exists()) file.length() else 0L
 

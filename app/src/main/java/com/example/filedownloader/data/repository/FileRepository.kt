@@ -14,7 +14,7 @@ class FileRepository @Inject constructor(
     private val context: Context,
 ) {
 
-    fun getCacheFile(context: Context, fileName: String): File {
+    fun getCacheFile(fileName: String): File {
         val cacheDir = context.externalCacheDir ?: context.cacheDir
         return File(cacheDir, fileName)
     }
