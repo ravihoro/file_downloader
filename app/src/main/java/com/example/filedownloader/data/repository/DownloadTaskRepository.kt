@@ -31,4 +31,6 @@ class DownloadTaskRepository @Inject constructor(
     suspend fun getTaskByFileNameAndMimeType(fileName: String, mimeType: String) : DownloadTask? =
         downloadTaskDao.getTaskByFileNameAndMimeType(fileName, mimeType)
 
+    suspend fun deleteTask(task: DownloadTask) = downloadTaskDao.deleteTask(task)
+
 }
