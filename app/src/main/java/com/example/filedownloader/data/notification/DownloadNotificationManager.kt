@@ -47,7 +47,7 @@ class DownloadNotificationManager(private val context: Context) {
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Downloading: $title")
-            .setContentText("Progress: $progress")
+            .setContentText("Progress: $progress%")
             .setProgress(100, progress, false)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
