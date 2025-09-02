@@ -17,9 +17,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import androidx.lifecycle.viewModelScope
-import com.example.filedownloader.domain.usecase.AddDownloadUseCase
+import com.example.filedownloader.di.DownloadEventBus
 import com.example.filedownloader.domain.usecase.FetchMetaDataUseCase
 import com.example.filedownloader.presentation.event.DownloadEvent
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -30,14 +31,24 @@ class DownloadViewModel @Inject constructor(
     private val pauseDownloadUseCase: PauseDownloadUseCase,
     private val resumeDownloadUseCase: ResumeDownloadUseCase,
     private val cancelDownloadUseCase: CancelDownloadUseCase,
-    private val addDownloadUseCase: AddDownloadUseCase,
-) : ViewModel(){
+    private val eventBus: DownloadEventBus,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DownloadUiState())
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
 
     init {
         observeDownloads()
+        viewModelScope.launch {
+            eventBus.taskIdFlow.collect{ taskId ->
+                val task = repository.getTaskById(taskId)
+                if(task != null){
+                    startDownloadUseCase(task)
+
+                }
+
+            }
+        }
     }
 
     private fun observeDownloads() {
@@ -52,28 +63,22 @@ class DownloadViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    fun onEvent(event: DownloadEvent){
+    fun onEvent(event: DownloadEvent) {
         viewModelScope.launch {
-            try{
-                when(event){
-                    is DownloadEvent.Add -> {
-                        _uiState.update { it.copy(isLoading = true) }
+            try {
+                when (event) {
 
-                        val result = addDownloadUseCase(event.url)
-
-                        result.onFailure { e ->
-                            _uiState.update { it.copy(error = e.message) }
-                        }
-
-                        _uiState.update { it.copy(isLoading = false) }
-
-                    }
                     is DownloadEvent.Start -> startDownloadUseCase(event.task)
-                    is DownloadEvent.Pause -> pauseDownloadUseCase(event.taskId, event.downloadedBytes, event.progress)
+                    is DownloadEvent.Pause -> pauseDownloadUseCase(
+                        event.taskId,
+                        event.downloadedBytes,
+                        event.progress
+                    )
+
                     is DownloadEvent.Resume -> resumeDownloadUseCase(event.task)
                     is DownloadEvent.Cancel -> cancelDownloadUseCase(event.taskId)
                 }
-            }catch(e: Exception){
+            } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
         }
