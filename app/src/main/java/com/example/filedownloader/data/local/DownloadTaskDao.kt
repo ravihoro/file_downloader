@@ -1,6 +1,7 @@
 package com.example.filedownloader.data.local
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -32,5 +33,9 @@ interface DownloadTaskDao {
 
     @Query("SELECT * FROM DownloadTask WHERE fileName = :fileName AND mimeType = :mimeType")
     suspend fun getTaskByFileNameAndMimeType(fileName: String, mimeType: String): DownloadTask?
+
+
+    @Delete
+    suspend fun deleteTask(task: DownloadTask)
 
 }
