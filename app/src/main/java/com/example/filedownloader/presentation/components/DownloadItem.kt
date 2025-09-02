@@ -1,5 +1,7 @@
 package com.example.filedownloader.presentation.components
 
+import android.app.DownloadManager
+import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -37,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,8 @@ import com.example.filedownloader.utils.formatBytes
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit) {
+
+    val context = LocalContext.current;
 
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -172,6 +177,21 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                                 isExpanded = false
                             })
                     }else if(status == DownloadStatus.COMPLETED ){
+
+                        DropdownMenuItem(text = {Text("Show in Downloads")},
+                            onClick = {
+
+
+
+                                isExpanded = false
+
+                                val intent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+
+                            })
+
                         DropdownMenuItem(text = {Text("Delete")},
                             onClick = {
                                 onDelete()
