@@ -6,7 +6,12 @@ import androidx.work.WorkManager
 import com.example.filedownloader.data.notification.DownloadNotificationManager
 import com.example.filedownloader.data.local.AppDatabase
 import com.example.filedownloader.data.local.DownloadTaskDao
+import com.example.filedownloader.data.orchestrator.DownloadOrchestrator
+import com.example.filedownloader.data.orchestrator.WorkManagerDownloadOrchestrator
 import com.example.filedownloader.data.repository.DownloadTaskRepository
+import com.example.filedownloader.data.repository.FileRepository
+import com.example.filedownloader.data.repository.RemoteDownloadDataRepository
+import com.example.filedownloader.data.repository.RemoteMetaDataRepository
 import com.example.filedownloader.domain.usecase.CancelDownloadUseCase
 import com.example.filedownloader.domain.usecase.PauseDownloadUseCase
 import com.example.filedownloader.domain.usecase.ResumeDownloadUseCase
@@ -39,7 +44,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDownloadTaskRepository(dao: DownloadTaskDao): DownloadTaskRepository = DownloadTaskRepository(dao)
+    fun provideDownloadTaskRepository(dao: DownloadTaskDao): DownloadTaskRepository =
+        DownloadTaskRepository(dao)
 
     @Provides
     @Singleton
@@ -57,24 +63,25 @@ object AppModule {
     fun provideNotificationManager(@ApplicationContext context: Context): DownloadNotificationManager =
         DownloadNotificationManager(context)
 
-    //@Provides
-//    fun provideStartDownloadUseCase(
-//        repository: DownloadTaskRepository,
-//    ) = StartDownloadUseCase(repository)
-//
-//
-//    @Provides
-//    fun providePauseDownloadUseCase(repository: DownloadTaskRepository) =
-//        PauseDownloadUseCase(repository)
-//
-//    @Provides
-//    fun provideResumeDownloadUseCase(startDownloadUseCase: StartDownloadUseCase) =
-//        ResumeDownloadUseCase(startDownloadUseCase)
-//
-//    @Provides
-//    fun provideCancelDownloadUseCase(
-//        repository: DownloadTaskRepository,
-//    ) = CancelDownloadUseCase(repository)
+    @Provides
+    @Singleton
+    fun provideFileRepository(@ApplicationContext context: Context): FileRepository =
+        FileRepository(context)
 
+    @Provides
+    @Singleton
+    fun provideRemoteMetaDataRepository(client: OkHttpClient): RemoteMetaDataRepository =
+        RemoteMetaDataRepository(client)
+
+    @Provides
+    @Singleton
+    fun provideRemoteDownloadDataRepository(client: OkHttpClient): RemoteDownloadDataRepository =
+        RemoteDownloadDataRepository(client)
+
+    @Provides
+    @Singleton
+    fun provideWorkManagerDownloadOrchestrator(@ApplicationContext context: Context): DownloadOrchestrator =
+        WorkManagerDownloadOrchestrator(context)
 
 }
+
