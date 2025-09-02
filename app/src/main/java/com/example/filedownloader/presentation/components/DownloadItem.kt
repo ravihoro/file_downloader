@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -119,6 +120,10 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                         progress = { progress / 100f },
                         modifier = Modifier.width(60.dp).height(8.dp),
                         color = Color.Blue,
+                        gapSize = (-15).dp,
+                        strokeCap = StrokeCap.Round,
+                        trackColor = Color.Gray,
+                        drawStopIndicator = {}
                     )
                 }
 
