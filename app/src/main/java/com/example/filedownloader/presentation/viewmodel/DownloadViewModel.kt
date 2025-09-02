@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import androidx.lifecycle.viewModelScope
 import com.example.filedownloader.di.DownloadEventBus
+import com.example.filedownloader.domain.usecase.DeleteDownloadUseCase
 import com.example.filedownloader.domain.usecase.FetchMetaDataUseCase
 import com.example.filedownloader.presentation.event.DownloadEvent
 import kotlinx.coroutines.flow.collect
@@ -31,6 +32,7 @@ class DownloadViewModel @Inject constructor(
     private val pauseDownloadUseCase: PauseDownloadUseCase,
     private val resumeDownloadUseCase: ResumeDownloadUseCase,
     private val cancelDownloadUseCase: CancelDownloadUseCase,
+    private val deleteDownloadUseCase: DeleteDownloadUseCase,
     private val eventBus: DownloadEventBus,
 ) : ViewModel() {
 
@@ -77,6 +79,7 @@ class DownloadViewModel @Inject constructor(
 
                     is DownloadEvent.Resume -> resumeDownloadUseCase(event.task)
                     is DownloadEvent.Cancel -> cancelDownloadUseCase(event.taskId)
+                    is DownloadEvent.Delete -> deleteDownloadUseCase(event.task)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

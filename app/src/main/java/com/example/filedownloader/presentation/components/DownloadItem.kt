@@ -47,7 +47,7 @@ import com.example.filedownloader.utils.formatBytes
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, onCancel: () -> Unit) {
+fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit) {
 
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -158,11 +158,20 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                     expanded = isExpanded,
                     onDismissRequest = { isExpanded = false}
                 ) {
-                    DropdownMenuItem(text = {Text("Cancel")},
-                        onClick = {
-                            onCancel()
-                            isExpanded = false
-                        })
+                    if(status == DownloadStatus.ACTIVE || status == DownloadStatus.PAUSED){
+                        DropdownMenuItem(text = {Text("Cancel")},
+                            onClick = {
+                                onCancel()
+                                isExpanded = false
+                            })
+                    }else if(status == DownloadStatus.COMPLETED ){
+                        DropdownMenuItem(text = {Text("Delete")},
+                            onClick = {
+                                onDelete()
+                                isExpanded = false
+                            })
+                    }
+
                 }
             }
         }

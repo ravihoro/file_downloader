@@ -16,7 +16,7 @@ import com.example.filedownloader.data.local.DownloadTask
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-fun CompletedDownloadList(downloads: List<DownloadTask>) {
+fun CompletedDownloadList(downloads: List<DownloadTask>, onDelete: (DownloadTask) -> Unit) {
     if(downloads.isEmpty()){
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center){
             Text("No Completed Downloads")
@@ -24,7 +24,9 @@ fun CompletedDownloadList(downloads: List<DownloadTask>) {
     } else {
         LazyColumn (modifier = Modifier.fillMaxSize()){
             items(downloads) { task ->
-                DownloadItem(task = task, onPause = {}, onResume = {}, onCancel = {},)
+                DownloadItem(task = task, onPause = {}, onResume = {}, onCancel = {}, onDelete = {
+                    onDelete(task)
+                },)
                 HorizontalDivider()
             }
         }

@@ -51,4 +51,10 @@ class FileRepository @Inject constructor(
         if(file.exists()) file.delete();
     }
 
+    fun deleteFromDownloads(fileName: String) {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val file = File(downloadsDir, fileName)
+        if (file.exists()) file.delete()
+    }
+
 }

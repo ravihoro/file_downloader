@@ -36,7 +36,8 @@ fun ActiveDownloadList(
                     task = task,
                     onPause = {onPause(task)},
                     onCancel = {onCancel(task)},
-                    onResume = {onResume(task)}
+                    onResume = {onResume(task)},
+                    onDelete = {}
                 )
 
                 HorizontalDivider()

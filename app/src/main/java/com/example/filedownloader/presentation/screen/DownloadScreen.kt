@@ -86,7 +86,10 @@ fun DownloadScreen(
                     }
                 )
                 1 -> CompletedDownloadList(
-                    downloads = uiState.completed
+                    downloads = uiState.completed,
+                    onDelete = { task ->
+                        viewModel.onEvent(DownloadEvent.Delete(task))
+                    }
                 )
             }
 
