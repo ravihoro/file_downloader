@@ -1,4 +1,4 @@
-package com.example.filedownloader
+package com.example.filedownloader.utils
 
 
 import android.content.ContentValues

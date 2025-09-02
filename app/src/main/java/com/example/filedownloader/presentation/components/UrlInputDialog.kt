@@ -1,57 +1,45 @@
-package com.example.filedownloader
+package com.example.filedownloader.presentation.components
 
-import android.util.Log
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import kotlinx.coroutines.flow.StateFlow
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrlInputDialog(
     urlInput: String,
-    isLoadingFlow: StateFlow<Boolean>,
+    isLoading: Boolean,
     onUrlChange: (String) -> Unit,
     onDismiss: () -> Unit,
-    onAddDownload: () -> Unit
+    onAddDownload: () -> Unit,
 ) {
 
-    val isLoading = isLoadingFlow.collectAsState();
-
-    Log.d("DownloadManager", "Alert Dialog")
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Enter URL to start download") },
         text = {
-            Column {
-                TextField(
-                    value = urlInput,
-                    onValueChange = onUrlChange,
-                    label = { Text("Enter URL") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions.Default.copy(
-                        keyboardType = KeyboardType.Uri,
-                    )
-                )
-            }
+            TextField(
+                value = urlInput,
+                onValueChange = onUrlChange,
+                label = { Text("Enter URL")},
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            if(isLoading.value){
+            if(isLoading){
                 CircularProgressIndicator()
             }else{
                 Button(onClick = onAddDownload, enabled = urlInput.isNotEmpty()) {
                     Text("Start Download")
                 }
             }
-
         },
         dismissButton = {
             Button(onClick = onDismiss) {

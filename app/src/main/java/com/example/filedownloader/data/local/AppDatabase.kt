@@ -1,4 +1,4 @@
-package com.example.filedownloader
+package com.example.filedownloader.data.local
 
 import android.content.Context
 import androidx.room.Database

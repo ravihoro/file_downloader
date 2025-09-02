@@ -1,4 +1,4 @@
-package com.example.filedownloader
+package com.example.filedownloader.notification
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -9,9 +9,8 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Singleton
+import android.app.Notification
 
 @Singleton
 class DownloadNotificationManager(private val context: Context) {
@@ -44,6 +43,18 @@ class DownloadNotificationManager(private val context: Context) {
         }
     }
 
+    fun createDownloadNotification(taskId: Int, title: String, progress: Int): Notification {
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Downloading: $title")
+            .setContentText("Progress: $progress")
+            .setProgress(100, progress, false)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+    }
+
     fun showDownloadNotification(taskId: Int, title: String, progress: Int) {
         if (ActivityCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS,
@@ -51,11 +62,12 @@ class DownloadNotificationManager(private val context: Context) {
         ) {
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Downloading: ${title}")
+                .setContentTitle("Downloading: $title")
                 .setContentText("Progress: ${progress}%")
                 .setProgress(100, progress, false)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .build();
             NotificationManagerCompat.from(context).notify(taskId, notification);
         }
