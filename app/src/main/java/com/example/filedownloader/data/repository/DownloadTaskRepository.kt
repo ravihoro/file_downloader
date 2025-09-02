@@ -12,6 +12,8 @@ class DownloadTaskRepository @Inject constructor(
     private val downloadTaskDao: DownloadTaskDao
 ){
 
+    fun getAllTasks() : Flow<List<DownloadTask>> = downloadTaskDao.getAllTasks()
+
     fun getTaskByStatus(status: DownloadStatus) : Flow<List<DownloadTask>> =
         downloadTaskDao.getTaskByStatus(status)
 

@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DownloadTaskDao {
 
+    @Query("SELECT * FROM DownloadTask")
+    fun getAllTasks() : Flow<List<DownloadTask>>
+
     @Query("SELECT * FROM DownloadTask WHERE status = :status")
     fun getTaskByStatus(status: DownloadStatus): Flow<List<DownloadTask>>
 
