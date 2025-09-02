@@ -14,6 +14,7 @@ import com.example.filedownloader.data.local.DownloadStatus
 import com.example.filedownloader.data.repository.DownloadTaskRepository
 import com.example.filedownloader.data.repository.FileRepository
 import com.example.filedownloader.data.repository.RemoteDownloadDataRepository
+import com.example.filedownloader.utils.formatSpeed
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +44,8 @@ class DownloadWorker @AssistedInject constructor(
 
             var downloadedBytes = 0L
             var lastProgress = 0
+            var lastUpdateTime = System.currentTimeMillis()
+            var lastDownloadedBytes = downloadedBytes
 
             try {
 
@@ -73,7 +76,8 @@ class DownloadWorker @AssistedInject constructor(
                                     taskId,
                                     lastProgress.toFloat(),
                                     DownloadStatus.PAUSED,
-                                    downloadedBytes
+                                    downloadedBytes,
+                                    "0 B/s",
                                 )
                                 return@withContext Result.retry()
                             }
@@ -85,21 +89,30 @@ class DownloadWorker @AssistedInject constructor(
 
                             downloadedBytes += bytesRead
 
-                            val progress = if(totalBytes > 0)
-                                ((downloadedBytes.toFloat()/totalBytes) * 100).toInt()
-                            else 0
+                            val now = System.currentTimeMillis()
+                            val elapsedTime = now - lastUpdateTime
 
-                            if(progress > lastProgress){
-                                lastProgress = progress
-                                repository.updateTaskProgress(
-                                    taskId,
-                                    progress.toFloat(),
-                                    DownloadStatus.ACTIVE,
-                                    downloadedBytes
-                                )
-                                setForeground(createForegroundInfo(taskId,task.fileName, progress))
+                            if(elapsedTime > 1000){
+                                val bytesInterval = downloadedBytes - lastDownloadedBytes
+                                val speed = formatSpeed(bytesInterval * 1000.0 / elapsedTime)
+
+                                val progress = if(totalBytes > 0)
+                                    ((downloadedBytes.toFloat()/totalBytes) * 100).toInt()
+                                else 0
+
+                                if(progress > lastProgress){
+                                    lastProgress = progress
+                                    repository.updateTaskProgress(
+                                        taskId,
+                                        progress.toFloat(),
+                                        DownloadStatus.ACTIVE,
+                                        downloadedBytes,
+                                        speed
+                                    )
+                                    setForeground(createForegroundInfo(taskId,task.fileName, progress))
+                                }
+
                             }
-
                         }
 
                         sink.flush()
@@ -116,7 +129,8 @@ class DownloadWorker @AssistedInject constructor(
                                 taskId,
                                 100f,
                                 DownloadStatus.COMPLETED,
-                                downloadedBytes
+                                downloadedBytes,
+                                "0 B/s",
                             )
 
                             notificationManager.showDownloadCompleteNotification(taskId, task.fileName)
@@ -131,7 +145,8 @@ class DownloadWorker @AssistedInject constructor(
                                 taskId,
                                 (downloadedBytes * 100f / (task.totalBytes.takeIf { it > 0 } ?: downloadedBytes)).coerceAtMost(99f),
                                 DownloadStatus.PAUSED,
-                                downloadedBytes
+                                downloadedBytes,
+                                "0 B/s",
                             )
 
                             // don’t delete the cache file, let user resume or retry
@@ -152,7 +167,8 @@ class DownloadWorker @AssistedInject constructor(
                     taskId,
                     lastProgress.toFloat(),
                     DownloadStatus.PAUSED,
-                    downloadedBytes
+                    downloadedBytes,
+                    "0 B/s",
                 )
                 notificationManager.cancelNotification(taskId)
                 Result.retry()

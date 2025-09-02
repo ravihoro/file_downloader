@@ -23,7 +23,8 @@ class DownloadTaskRepository @Inject constructor(
         progress: Float,
         status: DownloadStatus,
         downloadedBytes: Long,
-    ) : Boolean = downloadTaskDao.updateTaskProgress(id, progress, status, downloadedBytes) > 0
+        speed: String
+    ) : Boolean = downloadTaskDao.updateTaskProgress(id, progress, status, downloadedBytes, speed) > 0
 
     suspend fun getTaskById(id: Int): DownloadTask? =
         downloadTaskDao.getTaskById(id)

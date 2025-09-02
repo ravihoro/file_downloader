@@ -25,7 +25,8 @@ class CancelDownloadUseCase @Inject constructor(
                 id = taskId,
                 progress = 0f,
                 status =  DownloadStatus.CANCELLED,
-                downloadedBytes = 0L
+                downloadedBytes = 0L,
+                "0 B/s",
             )
 
             orchestrator.cancelDownload(taskId)

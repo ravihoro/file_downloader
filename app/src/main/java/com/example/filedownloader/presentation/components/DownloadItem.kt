@@ -60,10 +60,34 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
     Row(modifier = Modifier
         .fillMaxWidth()
         .padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier
-            .size(70.dp)
-            .background(Color.Blue), contentAlignment = Alignment.Center,){
-            Text(text = task.fileName.substringAfterLast("."), color = Color.White)
+
+        Box(modifier = Modifier.padding(10.dp).height(80.dp).width(80.dp)){
+            Box(modifier = Modifier
+                .size(70.dp)
+                .background(Color.Blue), contentAlignment = Alignment.Center,){
+                Text(text = task.fileName.substringAfterLast("."), color = Color.White)
+            }
+
+            if(status != DownloadStatus.COMPLETED){
+                Box(
+                    modifier = Modifier.height(30.dp).width(30.dp).background(Color.Gray, shape = CircleShape)
+                        .align(Alignment.BottomEnd)
+                        .clickable {
+                            when(status) {
+                                DownloadStatus.ACTIVE -> onPause()
+                                DownloadStatus.PAUSED -> onResume()
+                                else -> {}
+                            }
+                        }
+                ){
+                    Icon(
+                        imageVector = if(status ==  DownloadStatus.ACTIVE) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = "Pause/Resume",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -79,8 +103,6 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            Spacer(Modifier.height(5.dp))
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,16 +113,15 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                     Row (
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.ArrowDownward, contentDescription = "Downloading")
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Downloading", Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(task.speed)
+                        Text(task.speed, fontSize = 14.sp)
                     }
                 } else if(status == DownloadStatus.PAUSED){
-                    Text("Paused")
+                    Text("Paused", fontSize = 14.sp)
                 } else if(task.message.isNotEmpty()){
                     Text(task.message, color = Color.Red)
                 }
-
             }
 
             Row(
@@ -132,25 +153,6 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
         }
 
         Spacer(Modifier.width(8.dp))
-
-        if(status != DownloadStatus.COMPLETED){
-            Box(
-                modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.Gray)
-                    .clickable {
-                        when(status) {
-                            DownloadStatus.ACTIVE -> onPause()
-                            DownloadStatus.PAUSED -> onResume()
-                            else -> {}
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ){
-                Icon(
-                    imageVector = if(status ==  DownloadStatus.ACTIVE) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = "Pause/Resume"
-                )
-            }
-        }
 
         Box{
             IconButton(

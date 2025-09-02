@@ -18,14 +18,15 @@ interface DownloadTaskDao {
 
     @Query("""
         UPDATE DownloadTask
-        SET progress = :progress, downloadedBytes = :downloadedBytes, status = :status
+        SET progress = :progress, downloadedBytes = :downloadedBytes, status = :status, speed = :speed
         WHERE id = :id
     """)
     suspend fun updateTaskProgress(
         id: Int,
         progress: Float,
         status: DownloadStatus,
-        downloadedBytes: Long
+        downloadedBytes: Long,
+        speed: String
     ): Int
 
     @Query("SELECT * FROM DownloadTask WHERE id = :id")

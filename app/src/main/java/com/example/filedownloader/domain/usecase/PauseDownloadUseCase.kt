@@ -17,7 +17,7 @@ class PauseDownloadUseCase @Inject constructor(
 
         orchestrator.cancelDownload(taskId)
 
-        repository.updateTaskProgress(taskId,progress, DownloadStatus.PAUSED, downloadedBytes)
+        repository.updateTaskProgress(taskId,progress, DownloadStatus.PAUSED, downloadedBytes, "0 B/s",)
     }
 
 }
