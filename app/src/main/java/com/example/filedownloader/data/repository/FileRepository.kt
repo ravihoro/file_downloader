@@ -45,4 +45,10 @@ class FileRepository @Inject constructor(
             false
         }
     }
+
+    fun deleteFromCache(fileName: String){
+        val file = getCacheFile(fileName);
+        if(file.exists()) file.delete();
+    }
+
 }
