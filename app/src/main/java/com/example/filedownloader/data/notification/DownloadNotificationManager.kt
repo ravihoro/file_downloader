@@ -1,4 +1,4 @@
-package com.example.filedownloader.notification
+package com.example.filedownloader.data.notification
 
 import android.Manifest
 import android.app.NotificationChannel

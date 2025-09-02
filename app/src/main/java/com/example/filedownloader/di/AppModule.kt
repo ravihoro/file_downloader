@@ -3,7 +3,7 @@ package com.example.filedownloader.di
 import android.content.Context
 import androidx.room.Room
 import androidx.work.WorkManager
-import com.example.filedownloader.notification.DownloadNotificationManager
+import com.example.filedownloader.data.notification.DownloadNotificationManager
 import com.example.filedownloader.data.local.AppDatabase
 import com.example.filedownloader.data.local.DownloadTaskDao
 import com.example.filedownloader.data.repository.DownloadTaskRepository
