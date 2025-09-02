@@ -32,7 +32,7 @@ class WorkManagerDownloadOrchestrator @Inject constructor(
 
         workManager.enqueueUniqueWork(
             "download_$taskId",
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request
         )
     }

@@ -14,6 +14,11 @@ class StartDownloadUseCase @Inject constructor(
 ){
 
     suspend operator fun invoke(task: DownloadTask): Long = withContext(Dispatchers.IO) {
+
+        if(task.status == DownloadStatus.COMPLETED){
+            return@withContext task.id.toLong()
+        }
+
         val taskId = repository.insertOrUpdate(task.copy(status = DownloadStatus.ACTIVE))
 
         orchestrator.enqueueDownload(taskId.toInt())
