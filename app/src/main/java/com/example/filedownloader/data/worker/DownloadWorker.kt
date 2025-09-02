@@ -9,19 +9,17 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import com.example.filedownloader.notification.DownloadNotificationManager
+import com.example.filedownloader.data.notification.DownloadNotificationManager
 import com.example.filedownloader.data.local.DownloadStatus
 import com.example.filedownloader.data.repository.DownloadTaskRepository
-import com.example.filedownloader.utils.saveFileToDownloads
+import com.example.filedownloader.data.repository.FileRepository
+import com.example.filedownloader.data.repository.RemoteDownloadDataRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okio.buffer
 import okio.sink
-import java.io.File
 import java.io.FileOutputStream
 
 @HiltWorker
@@ -29,7 +27,8 @@ class DownloadWorker @AssistedInject constructor(
     @Assisted val context: Context,
     @Assisted params: WorkerParameters,
     private val repository: DownloadTaskRepository,
-    private val client: OkHttpClient,
+    private val remoteDownloadDataRepository: RemoteDownloadDataRepository,
+    private val fileRepository: FileRepository,
     private val notificationManager: DownloadNotificationManager
     ) : CoroutineWorker(context, params){
 
@@ -51,94 +50,102 @@ class DownloadWorker @AssistedInject constructor(
 
                 setForeground(createForegroundInfo(taskId, task.fileName, 0))
 
-                val cacheDir = context.externalCacheDir ?: context.cacheDir
-
-                val file = File(cacheDir, task.fileName)
+                val file = fileRepository.getCacheFile(fileName = task.fileName, context = context)
 
                 downloadedBytes = if(file.exists()) file.length() else 0L
 
-                val requestBuilder = Request.Builder().url(task.url)
+                val responseResult = remoteDownloadDataRepository.startDownload(task.url, downloadedBytes, task.supportsResume)
 
-                if(downloadedBytes > 0 && task.supportsResume){
-                    requestBuilder.header("Range", "bytes=$downloadedBytes-")
-                }
+                responseResult.fold(
+                    onSuccess = { response ->
+                        val totalBytes = if(task.totalBytes> 0) task.totalBytes else response.body?.contentLength() ?: 0L
 
-                val request = requestBuilder.build()
+                        val outputStream = FileOutputStream(file,task.supportsResume)
 
-                val response = client.newCall(request).execute()
+                        val sink = outputStream.sink().buffer()
 
-                if(!response.isSuccessful) throw Exception("HTTP error: ${response.code}")
+                        val source = response.body?.source() ?: throw Exception("Empty Body")
 
-                val totalBytes = if(task.totalBytes> 0) task.totalBytes else response.body?.contentLength() ?: 0L
+                        while (true) {
+                            if(isStopped){
+                                Log.d("DownloadWorker", "Worker stopped, saving progress")
+                                repository.updateTaskProgress(
+                                    taskId,
+                                    lastProgress.toFloat(),
+                                    DownloadStatus.PAUSED,
+                                    downloadedBytes
+                                )
+                                return@withContext Result.retry()
+                            }
 
-                val outputStream = FileOutputStream(file,task.supportsResume)
+                            val bytesRead = source.read(sink.buffer,8_192)
+                            if(bytesRead == -1L) break
 
-                val sink = outputStream.sink().buffer()
+                            sink.emit()
 
-                val source = response.body?.source() ?: throw Exception("Empty Body")
+                            downloadedBytes += bytesRead
 
-                while (true) {
-                    if(isStopped){
-                        Log.d("DownloadWorker", "Worker stopped, saving progress")
-                        repository.updateTaskProgress(
-                            taskId,
-                            lastProgress.toFloat(),
-                            DownloadStatus.PAUSED,
-                            downloadedBytes
-                        )
-                        return@withContext Result.retry()
+                            val progress = if(totalBytes > 0)
+                                ((downloadedBytes.toFloat()/totalBytes) * 100).toInt()
+                            else 0
+
+                            if(progress > lastProgress){
+                                lastProgress = progress
+                                repository.updateTaskProgress(
+                                    taskId,
+                                    progress.toFloat(),
+                                    DownloadStatus.ACTIVE,
+                                    downloadedBytes
+                                )
+                                setForeground(createForegroundInfo(taskId,task.fileName, progress))
+                            }
+
+                        }
+
+                        sink.flush()
+                        sink.close()
+                        source.close()
+                        outputStream.close()
+
+                        val isFileSavedToDownloads = fileRepository.saveFileToDownloads(context, file, task.mimeType)
+
+                        if(isFileSavedToDownloads){
+                            file.delete();
+
+                            repository.updateTaskProgress(
+                                taskId,
+                                100f,
+                                DownloadStatus.COMPLETED,
+                                downloadedBytes
+                            )
+
+                            notificationManager.showDownloadCompleteNotification(taskId, task.fileName)
+
+                            Log.d("DownloadWorker", "Download complete for ${task.fileName}")
+
+                            Result.success()
+
+
+                        }else{
+                            repository.updateTaskProgress(
+                                taskId,
+                                (downloadedBytes * 100f / (task.totalBytes.takeIf { it > 0 } ?: downloadedBytes)).coerceAtMost(99f),
+                                DownloadStatus.PAUSED,
+                                downloadedBytes
+                            )
+
+                            // don’t delete the cache file, let user resume or retry
+                            notificationManager.cancelNotification(taskId)
+
+                            Result.retry()
+                        }
+
+
+                    },
+                    onFailure = { e ->
+                        throw Exception("HTTP error: ${e.message}")
                     }
-
-                    val bytesRead = source.read(sink.buffer,8_192)
-                    if(bytesRead == -1L) break
-
-                    sink.emit()
-
-                    downloadedBytes += bytesRead
-
-                    val progress = if(totalBytes > 0)
-                        ((downloadedBytes.toFloat()/totalBytes) * 100).toInt()
-                    else 0
-
-                    if(progress > lastProgress){
-                        lastProgress = progress
-                        repository.updateTaskProgress(
-                            taskId,
-                            progress.toFloat(),
-                            DownloadStatus.ACTIVE,
-                            downloadedBytes
-                        )
-                        setForeground(createForegroundInfo(taskId,task.fileName, progress))
-                    }
-
-                }
-
-                sink.flush()
-                sink.close()
-                source.close()
-                outputStream.close()
-
-                try{
-                    saveFileToDownloads(context, file, task.mimeType)
-                    file.delete()
-                }catch(e: Exception){
-                    Log.e("DownloadWorker", "Failed to move file: ${e.message}")
-                    return@withContext Result.failure()
-                }
-
-                repository.updateTaskProgress(
-                    taskId,
-                    100f,
-                    DownloadStatus.COMPLETED,
-                    downloadedBytes
                 )
-
-                notificationManager.showDownloadCompleteNotification(taskId, task.fileName)
-
-                Log.d("DownloadWorker", "Download complete for ${task.fileName}")
-
-                Result.success()
-
             }catch(e: Exception){
                 Log.e("DownloadWorker", "Error: ${e.message}")
                 repository.updateTaskProgress(
