@@ -133,7 +133,9 @@ class DownloadWorker @AssistedInject constructor(
                                 "0 B/s",
                             )
 
-                            notificationManager.showDownloadCompleteNotification(taskId, task.fileName)
+                            notificationManager.cancelNotification(taskId)
+
+                            notificationManager.showDownloadCompleteNotification(taskId + 10000, task.fileName)
 
                             Log.d("DownloadWorker", "Download complete for ${task.fileName}")
 

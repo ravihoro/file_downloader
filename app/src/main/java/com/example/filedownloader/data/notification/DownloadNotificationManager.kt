@@ -16,9 +16,11 @@ import android.app.Notification
 class DownloadNotificationManager(private val context: Context) {
 
     companion object {
-        private const val CHANNEL_ID = "download_channel";
-        private const val CHANNEL_NAME = "Download Notification";
-        private const val CHANNEL_DESCRIPTION = "Shows notification for active downloads";
+        private const val ONGOING_CHANNEL_ID = "download_ongoing"
+        private const val ONGOING_CHANNEL_NAME = "Active Downloads"
+
+        private const val COMPLETE_CHANNEL_ID = "download_complete"
+        private const val COMPLETE_CHANNEL_NAME = "Completed Downloads"
     }
 
     init {
@@ -28,23 +30,28 @@ class DownloadNotificationManager(private val context: Context) {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = CHANNEL_DESCRIPTION
-            };
+            val ongoing = NotificationChannel(
+                ONGOING_CHANNEL_ID,
+                ONGOING_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = "Shows ongoing download progress" }
+
+            val complete = NotificationChannel(
+                COMPLETE_CHANNEL_ID,
+                COMPLETE_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = "Notifies when download is complete" }
 
             val notificationManager: NotificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager;
 
-            notificationManager.createNotificationChannel(channel);
+            notificationManager.createNotificationChannel(ongoing)
+            notificationManager.createNotificationChannel(complete)
         }
     }
 
     fun createDownloadNotification(taskId: Int, title: String, progress: Int): Notification {
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Downloading: $title")
             .setContentText("Progress: $progress%")
@@ -60,7 +67,7 @@ class DownloadNotificationManager(private val context: Context) {
                 context, Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            val notification = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentTitle("Downloading: $title")
                 .setContentText("Progress: ${progress}%")
@@ -78,8 +85,8 @@ class DownloadNotificationManager(private val context: Context) {
                 context, Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+            val notification = NotificationCompat.Builder(context, COMPLETE_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle("Download Complete: $title")
                 .setContentText("File downloaded successfully")
                 .setAutoCancel(true)
