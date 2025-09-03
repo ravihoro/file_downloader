@@ -36,4 +36,6 @@ class DownloadTaskRepository @Inject constructor(
 
     suspend fun deleteTask(task: DownloadTask) = downloadTaskDao.deleteTask(task)
 
+    suspend fun getNextTaskByStatus(status: DownloadStatus): DownloadTask? = downloadTaskDao.getNextTaskByStatus(status)
+
 }

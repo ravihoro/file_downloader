@@ -42,4 +42,7 @@ interface DownloadTaskDao {
     @Delete
     suspend fun deleteTask(task: DownloadTask)
 
+    @Query("SELECT * FROM DownloadTask WHERE status = :status ORDER BY id ASC LIMIT 1")
+    suspend fun getNextTaskByStatus(status: DownloadStatus): DownloadTask?
+
 }

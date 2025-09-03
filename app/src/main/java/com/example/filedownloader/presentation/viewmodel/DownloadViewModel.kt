@@ -56,7 +56,7 @@ class DownloadViewModel @Inject constructor(
     private fun observeDownloads() {
 
         repository.getAllTasks().onEach { tasks ->
-            val active = tasks.filter { it.status == DownloadStatus.ACTIVE || it.status == DownloadStatus.PAUSED }
+            val active = tasks.filter { it.status == DownloadStatus.ACTIVE || it.status == DownloadStatus.PAUSED || it.status == DownloadStatus.QUEUED}
             val completed = tasks.filter { it.status == DownloadStatus.COMPLETED }
 
             _uiState.value = DownloadUiState(

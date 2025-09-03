@@ -11,6 +11,8 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.example.filedownloader.data.notification.DownloadNotificationManager
 import com.example.filedownloader.data.local.DownloadStatus
+import com.example.filedownloader.data.orchestrator.DownloadOrchestrator
+import com.example.filedownloader.data.orchestrator.WorkManagerDownloadOrchestrator
 import com.example.filedownloader.data.repository.DownloadTaskRepository
 import com.example.filedownloader.data.repository.FileRepository
 import com.example.filedownloader.data.repository.RemoteDownloadDataRepository
@@ -30,7 +32,8 @@ class DownloadWorker @AssistedInject constructor(
     private val repository: DownloadTaskRepository,
     private val remoteDownloadDataRepository: RemoteDownloadDataRepository,
     private val fileRepository: FileRepository,
-    private val notificationManager: DownloadNotificationManager
+    private val notificationManager: DownloadNotificationManager,
+    private val orchestrator: DownloadOrchestrator,
     ) : CoroutineWorker(context, params){
 
         @RequiresApi(Build.VERSION_CODES.Q)
@@ -138,6 +141,8 @@ class DownloadWorker @AssistedInject constructor(
                             notificationManager.showDownloadCompleteNotification(taskId + 10000, task.fileName)
 
                             Log.d("DownloadWorker", "Download complete for ${task.fileName}")
+
+                            orchestrator.startNextDownload()
 
                             Result.success()
 
