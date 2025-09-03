@@ -21,6 +21,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -78,10 +79,14 @@ object AppModule {
     fun provideRemoteDownloadDataRepository(client: OkHttpClient): RemoteDownloadDataRepository =
         RemoteDownloadDataRepository(client)
 
-    @Provides
-    @Singleton
-    fun provideWorkManagerDownloadOrchestrator(@ApplicationContext context: Context): DownloadOrchestrator =
-        WorkManagerDownloadOrchestrator(context)
+//    @Provides
+//    @Singleton
+//    fun provideWorkManagerDownloadOrchestrator(
+//        @ApplicationContext context: Context,
+//        @IoScope ioScope: CoroutineScope,
+//        repository: DownloadTaskRepository
+//    ): DownloadOrchestrator =
+//        WorkManagerDownloadOrchestrator(context, ioScope, repository)
 
 }
 
