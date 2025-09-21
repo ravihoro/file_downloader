@@ -215,8 +215,6 @@ class InAppDownloadManager @Inject constructor(
 
                     repository.updateTaskProgress(taskId, 100f, DownloadStatus.COMPLETED, downloadedBytes, "0 B/s")
                     notificationManager.showDownloadCompleteNotification(taskId + 10000, task.fileName)
-
-                    tryStartNextQueued()
                 }else{
                     val p = ((downloadedBytes * 100f) / (if (totalBytes > 0) totalBytes else downloadedBytes)).coerceAtMost(99f)
                     repository.updateTaskProgress(taskId, p, DownloadStatus.PAUSED, downloadedBytes, "0 B/s")
