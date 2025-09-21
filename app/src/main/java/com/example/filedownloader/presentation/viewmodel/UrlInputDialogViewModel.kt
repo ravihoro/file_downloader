@@ -36,7 +36,7 @@ class UrlInputDialogViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = { taskId ->
-                    _urlInputDialogState.update { it.copy(isLoading = false, showDialog = false) }
+                    _urlInputDialogState.update { it.copy(isLoading = false, showDialog = false, urlInput = "") }
                     eventBus.publish(taskId.toInt())
                 },
                 onFailure = {
