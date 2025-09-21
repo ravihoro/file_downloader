@@ -126,6 +126,8 @@ fun DownloadItem(task: DownloadTask, onPause: () -> Unit, onResume: () -> Unit, 
                     Text("Queued", fontSize = 14.sp)
                 } else if(status == DownloadStatus.PAUSED){
                     Text("Paused", fontSize = 14.sp)
+                }else if(status == DownloadStatus.COMPLETED){
+                    Text("Completed", fontSize = 14.sp)
                 } else if(task.message.isNotEmpty()){
                     Text(task.message, color = Color.Red)
                 }
