@@ -1,4 +1,4 @@
-package com.example.filedownloader
+package com.example.filedownloader.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -19,9 +19,4 @@ data class DownloadTask(
     val supportsResume : Boolean = false,
 )
 
-enum class DownloadStatus {
-    ACTIVE,
-    PAUSED,
-    COMPLETED,
-    CANCELLED,
-}
+
