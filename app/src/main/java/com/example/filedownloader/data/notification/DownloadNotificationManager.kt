@@ -11,16 +11,21 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import javax.inject.Singleton
 import android.app.Notification
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 @Singleton
-class DownloadNotificationManager(private val context: Context) {
-
+class DownloadNotificationManager @Inject constructor(
+    @ApplicationContext private val context: Context
+){
     companion object {
         private const val ONGOING_CHANNEL_ID = "download_ongoing"
         private const val ONGOING_CHANNEL_NAME = "Active Downloads"
 
         private const val COMPLETE_CHANNEL_ID = "download_complete"
         private const val COMPLETE_CHANNEL_NAME = "Completed Downloads"
+
+        private const val GROUP_KEY_DOWNLOADS = "downloads_group"
     }
 
     init {
@@ -59,25 +64,8 @@ class DownloadNotificationManager(private val context: Context) {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setGroup(GROUP_KEY_DOWNLOADS)
             .build()
-    }
-
-    fun showDownloadNotification(taskId: Int, title: String, progress: Int) {
-        if (ActivityCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            val notification = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Downloading: $title")
-                .setContentText("Progress: ${progress}%")
-                .setProgress(100, progress, false)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                .build();
-            NotificationManagerCompat.from(context).notify(taskId, notification);
-        }
     }
 
     fun showDownloadCompleteNotification(taskId: Int, title: String) {
