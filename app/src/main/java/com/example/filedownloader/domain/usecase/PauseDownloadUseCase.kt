@@ -15,7 +15,7 @@ class PauseDownloadUseCase @Inject constructor(
 
     suspend operator fun invoke(taskId: Int, downloadedBytes: Long, progress: Float) {
 
-        orchestrator.cancelDownload(taskId)
+        orchestrator.pauseDownload(taskId)
 
         repository.updateTaskProgress(taskId,progress, DownloadStatus.PAUSED, downloadedBytes, "0 B/s",)
     }
