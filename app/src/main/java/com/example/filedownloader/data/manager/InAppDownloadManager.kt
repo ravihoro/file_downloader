@@ -242,7 +242,13 @@ class InAppDownloadManager @Inject constructor(
     private fun cancelNotification(taskId: Int) {
         notificationManager.cancelNotification(taskId)
         DownloadForegroundService.NotificationStore.remove(taskId)
-        DownloadForegroundService.updateServiceSummary(context)
+        if (DownloadForegroundService.NotificationStore.mapSize() == 0) {
+            // stop the service (ACTION_STOP) which calls stopForeground(true) and clears store
+            DownloadForegroundService.stopIfIdle(context)
+        } else {
+            // otherwise just refresh summary
+            DownloadForegroundService.updateServiceSummary(context)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

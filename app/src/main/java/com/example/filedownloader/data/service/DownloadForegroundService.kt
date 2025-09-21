@@ -116,6 +116,9 @@ class DownloadForegroundService: Service() {
                 } catch (t: Throwable) {
                     Log.w(TAG, "stopForeground threw: ${t.message}")
                 }
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(SERVICE_SUMMARY_ID)
+
                 NotificationStore.clear()
                 stopSelf()
             }
@@ -136,14 +139,21 @@ class DownloadForegroundService: Service() {
             "Managing downloads"
         }
 
-        return NotificationCompat.Builder(this, "download_ongoing")
+        val builder = NotificationCompat.Builder(this, "download_ongoing")
             .setContentTitle("Downloads")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setOngoing(true)
             .setGroup(GROUP_KEY_DOWNLOADS)
             .setGroupSummary(true)
-            .build()
+
+        if (activeCount > 0) {
+            builder.setOngoing(true)
+        } else {
+            // allow user or OS to remove it if somehow shown; prefer canceling instead
+            builder.setAutoCancel(true)
+        }
+
+        return builder.build()
 
     }
 }
