@@ -57,6 +57,18 @@ class InAppDownloadManager @Inject constructor(
     fun start(taskId: Int){
         if(jobs.containsKey(taskId)) return
 
+        val acquired = semaphore.tryAcquire()
+        if (!acquired) {
+            ioScope.launch {
+                // mark queued in DB and return — will be picked up when slots free
+                val task = repository.getTaskById(taskId)
+                if (task != null) {
+                    repository.insertOrUpdate(task.copy(status = DownloadStatus.QUEUED))
+                }
+            }
+            return
+        }
+
         val initialNotif = notificationManager.createDownloadNotification(
             taskId = taskId,
             title = "", // generic title - we'll update it once we read DB
@@ -66,7 +78,6 @@ class InAppDownloadManager @Inject constructor(
         DownloadForegroundService.NotificationStore.put(taskId, initialNotif)
 
         val job = scope.launch {
-            semaphore.acquire()
             try{
                 downloadLoop(taskId)
             }finally {
