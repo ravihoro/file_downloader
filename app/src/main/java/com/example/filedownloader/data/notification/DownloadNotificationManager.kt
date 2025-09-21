@@ -65,6 +65,7 @@ class DownloadNotificationManager @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setGroup(GROUP_KEY_DOWNLOADS)
+            .setOnlyAlertOnce(true)
             .build()
     }
 

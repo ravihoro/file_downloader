@@ -3,11 +3,13 @@ package com.example.filedownloader.data.service
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import java.util.concurrent.ConcurrentHashMap
 
@@ -90,21 +92,30 @@ class DownloadForegroundService: Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when(intent?.action){
             ACTION_START -> {
-                val n = NotificationStore.getAny() ?: buildSummaryNotification()
+                val n = buildSummaryNotification()
                 startForeground(SERVICE_SUMMARY_ID, n)
             }
             ACTION_UPDATE -> {
                 val taskId = intent.getIntExtra(EXTRA_TASK_ID, -1)
-                val n = NotificationStore.get(taskId) ?: NotificationStore.getAny()
-                if(n != null){
+                val n = if (taskId != -1) NotificationStore.get(taskId) else null
+                if (taskId != -1 && n != null) {
                     val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.notify(taskId, n)
+                    nm.notify(taskId, n) // update per-task notification
+                    nm.notify(SERVICE_SUMMARY_ID, buildSummaryNotification()) // always update summary
+                } else {
+                    // Defensive: we expected the per-task notification to exist in store
+                    Log.w(TAG, "ACTION_UPDATE: no per-task notification found for taskId=$taskId")
+                    // still refresh summary based on current store
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     nm.notify(SERVICE_SUMMARY_ID, buildSummaryNotification())
                 }
             }
             ACTION_STOP -> {
-                stopForeground(true)
-                NotificationStore.mapSize() // just to reference; below we clear
+                try {
+                    stopForeground(true)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "stopForeground threw: ${t.message}")
+                }
                 NotificationStore.clear()
                 stopSelf()
             }
@@ -115,16 +126,6 @@ class DownloadForegroundService: Service() {
         }
 
         return START_STICKY
-    }
-
-    private fun buildDefaultNotification(): Notification {
-        val channel = "download_ongoing"
-        return NotificationCompat.Builder(this, channel)
-            .setContentTitle("Downloads")
-            .setContentText("Managing Downloads")
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setOngoing(true)
-            .build()
     }
 
     private fun buildSummaryNotification(): Notification {

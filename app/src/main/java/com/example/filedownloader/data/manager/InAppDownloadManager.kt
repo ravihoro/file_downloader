@@ -79,11 +79,15 @@ class InAppDownloadManager @Inject constructor(
             }
         }
 
+        val wasEmpty = jobs.isEmpty()
         jobs[taskId] = job
 
         DownloadForegroundService.updateServiceSummary(context)
 
-        DownloadForegroundService.startServiceForTask(context)
+        if (wasEmpty) {
+            // we transitioned 0 -> 1, start the service now
+            DownloadForegroundService.startServiceForTask(context)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -99,6 +103,8 @@ class InAppDownloadManager @Inject constructor(
             val cacheFile = fileRepository.getCacheFile(task.fileName)
             val bytes = if(cacheFile.exists()) cacheFile.length() else 0L
             repository.updateTaskProgress(taskId, task.progress, DownloadStatus.PAUSED, bytes, "0 B/s")
+
+            cancelNotification(taskId)
         }
     }
 
@@ -108,10 +114,7 @@ class InAppDownloadManager @Inject constructor(
             val task = repository.getTaskById(taskId) ?: return@launch
             fileRepository.deleteFromCache(task.fileName)
             repository.updateTaskProgress(taskId, 0f, DownloadStatus.CANCELLED, 0L, "0 B/s")
-            notificationManager.cancelNotification(taskId)
-
-            DownloadForegroundService.NotificationStore.remove(taskId)
-            DownloadForegroundService.updateServiceSummary(context)
+            cancelNotification(taskId)
         }
     }
 
@@ -197,9 +200,7 @@ class InAppDownloadManager @Inject constructor(
 
                 if(saved){
                     cacheFile.delete()
-                    notificationManager.cancelNotification(taskId)
-                    DownloadForegroundService.NotificationStore.remove(taskId)
-                    DownloadForegroundService.updateServiceSummary(context)
+                    cancelNotification(taskId)
 
                     repository.updateTaskProgress(taskId, 100f, DownloadStatus.COMPLETED, downloadedBytes, "0 B/s")
                     notificationManager.showDownloadCompleteNotification(taskId + 10000, task.fileName)
@@ -209,10 +210,7 @@ class InAppDownloadManager @Inject constructor(
                     val p = ((downloadedBytes * 100f) / (if (totalBytes > 0) totalBytes else downloadedBytes)).coerceAtMost(99f)
                     repository.updateTaskProgress(taskId, p, DownloadStatus.PAUSED, downloadedBytes, "0 B/s")
 
-                    notificationManager.cancelNotification(taskId)
-                    DownloadForegroundService.NotificationStore.remove(taskId)
-                    DownloadForegroundService.updateServiceSummary(context)
-
+                    cancelNotification(taskId)
                 }
 
             }finally {
@@ -227,13 +225,15 @@ class InAppDownloadManager @Inject constructor(
 
         }, onFailure = {
             repository.updateTaskProgress(taskId, task.progress, DownloadStatus.PAUSED, downloadedBytes, "0 B/s")
-            notificationManager.cancelNotification(taskId)
-            DownloadForegroundService.NotificationStore.remove(taskId)
-            DownloadForegroundService.updateServiceSummary(context)
-
-            tryStartNextQueued()
+            cancelNotification(taskId)
         },)
 
+    }
+
+    private fun cancelNotification(taskId: Int) {
+        notificationManager.cancelNotification(taskId)
+        DownloadForegroundService.NotificationStore.remove(taskId)
+        DownloadForegroundService.updateServiceSummary(context)
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
